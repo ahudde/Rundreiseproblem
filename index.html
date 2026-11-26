@@ -8,7 +8,6 @@
   <title>Deutschlandtour · SIF 2026</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
-  <script src="config.js" defer></script>
   <script src="data.js" defer></script>
   <script src="data-22.js" defer></script>
   <script src="map-data.js" defer></script>
@@ -37,15 +36,14 @@
         <button type="button" class="button secondary task-choice" data-task="12" aria-pressed="true">12 Städte</button>
         <button type="button" class="button secondary task-choice" data-task="22" aria-pressed="false">22 Städte</button>
       </div>
-      <p class="small-text">Jede Aufgabe hat ihre eigene Rangliste. Deine angefangenen Routen bleiben beim Wechsel erhalten.</p>
+      <p class="small-text">Deine angefangenen Routen bleiben beim Wechsel erhalten.</p>
     </fieldset>
-    <div id="setup-notice" class="notice" hidden>Die Karte ist bereit zum Ausprobieren. Die gemeinsame Rangliste ist noch nicht verbunden.</div>
     <noscript><p class="notice">Bitte aktiviere JavaScript, um Städte auszuwählen und die Strecke zu berechnen.</p></noscript>
 
     <div class="game-layout">
       <section class="map-panel" aria-labelledby="map-heading">
         <div class="panel-heading"><h2 id="map-heading">Deine Route</h2><span class="count-pill"><span id="city-count">0</span> / <span id="city-total">12</span> Städte</span></div>
-        <p id="map-hint" class="map-hint">Gib deinen Namen ein. Dann kann die Reise beginnen.</p>
+        <p id="map-hint" class="map-hint">Klicke eine beliebige Stadt als Start und Ziel an.</p>
         <svg id="map" viewBox="-16 -5 196 229" aria-labelledby="map-title map-description">
           <title id="map-title">Karte mit zwölf Städten in Deutschland</title>
           <desc id="map-description">Wähle die Städte mit Klick, Enter oder Leertaste. Die Reihenfolge bestimmt deine Rundreise.</desc>
@@ -59,37 +57,20 @@
       </section>
 
       <aside class="side-panel">
-        <section class="player-panel" aria-labelledby="player-heading">
-          <p class="eyebrow">DU BIST DRAN</p><h2 id="player-heading">Wer reist mit?</h2>
-          <form id="player-form">
-            <label for="player-name">Dein Name oder Spitzname</label>
-            <input id="player-name" name="nickname" autocomplete="nickname" maxlength="30" placeholder="Zum Beispiel Alex" required>
-            <label for="room-code">Workshop-Code</label>
-            <input id="room-code" name="room" autocomplete="off" spellcheck="false" autocapitalize="none" maxlength="32" minlength="3" pattern="[A-Za-z0-9_-]{3,32}" required>
-            <button class="button primary" type="submit" id="start-button">Tour starten</button>
-          </form>
-          <div id="player-summary" hidden><p class="player-greeting">Gute Reise, <strong id="active-name"></strong>!</p><p class="small-text">Workshop <strong id="active-room"></strong></p><button class="text-button" id="change-player" type="button">Teilnahme wechseln</button></div>
-          <p class="privacy-note">Dein gewählter Name und deine beste Strecke erscheinen in der Rangliste dieses Workshops. Ein Spitzname genügt.</p>
-        </section>
-
-        <section class="trip-panel" aria-labelledby="trip-heading">
+        <section class="trip-panel" id="trip-panel" aria-labelledby="trip-heading">
+          <p class="eyebrow">DEINE TOUR</p>
           <div class="distance-heading"><h2 id="trip-heading">Strecke bisher</h2><span id="route-state">Wähle deinen Start</span></div>
           <p class="distance"><span id="distance">0</span><span class="distance-unit">km</span></p>
           <p id="distance-note" class="small-text">Der Rückweg zählt mit, sobald alle Städte besucht sind.</p>
           <div class="progress-track" role="progressbar" aria-label="Besuchte Städte" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0" id="progress"><div id="progress-fill"></div></div>
           <ol id="route-list" class="route-list" aria-label="Gewählte Reihenfolge"><li class="route-empty">Deine erste Stadt wird dein Start und Ziel.</li></ol>
           <div class="edit-controls"><button class="button secondary" id="undo" type="button" disabled>Letzte Stadt zurück</button><button class="text-button" id="reset" type="button" disabled>Neu beginnen</button></div>
-          <button class="button primary submit-button" id="submit-tour" type="button" disabled>Tour einreichen</button>
-          <p id="submission-message" class="submission-message" role="status" aria-live="polite"></p>
+          <p id="result-message" class="result-message" role="status" aria-live="polite"></p>
+          <p class="small-text personal-note">Dein Ergebnis wird nur dir angezeigt. Je kürzer die Strecke, desto besser.</p>
         </section>
       </aside>
     </div>
 
-    <section class="leaderboard-panel" aria-labelledby="leaderboard-heading">
-      <div class="leaderboard-top"><div><p class="eyebrow">DIE WORKSHOP-RANGLISTE</p><h2 id="leaderboard-heading">Die kürzesten Touren</h2><p class="small-text" id="leaderboard-description">Pro Teilnahme zählt die beste eingereichte Rundreise.</p></div><button class="button secondary" id="refresh" type="button">Aktualisieren</button></div>
-      <p id="leaderboard-status" class="leaderboard-status" role="status" aria-live="polite">Gib deinen Workshop-Code ein, um die Rangliste zu sehen.</p>
-      <div class="table-wrapper"><table id="leaderboard-table" hidden><thead><tr><th scope="col">Platz</th><th scope="col">Name</th><th scope="col" class="numeric">Rundreise</th></tr></thead><tbody id="leaderboard-body"></tbody></table></div>
-    </section>
     <p class="bottom-note">Eine kurze Tour finden ist das eine. Wissen, dass es keine kürzere gibt, ist die nächste Herausforderung.</p>
   </main>
   <footer class="site-footer"><span>SIF 2026 · Hochschule Heilbronn</span><span>Kartengrundlage: <a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noopener noreferrer">Natural Earth</a></span></footer>

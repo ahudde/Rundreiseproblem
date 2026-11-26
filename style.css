@@ -8,3 +8,4 @@
 @media(max-width:720px){.city-picker{padding:0 18px 15px}}
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 .task-picker{border:0;padding:0;margin:0 0 24px;min-width:0}.task-picker legend{font-size:1rem;font-weight:650;margin-bottom:10px}.task-buttons{display:flex;gap:10px}.task-choice{min-width:130px;font-size:1rem}.task-choice[aria-pressed=true]{background:var(--ink);color:white;border-color:var(--ink)}.task-picker .small-text{margin-top:10px}.route-line{stroke-width:var(--route-width,1.1)}.city-label{font-size:var(--label-size,10px)}.city-order{font-size:var(--order-size,4.8px)}
+.trip-panel.is-complete{border-color:var(--accent)}.trip-panel.is-complete .distance{color:var(--accent)}.result-message{font-size:1rem;font-weight:650;line-height:1.5;color:var(--accent);margin:20px 0 0}.result-message:empty{display:none}.personal-note{margin-top:18px}.edit-controls .button,.edit-controls .text-button{font-size:.9rem}
