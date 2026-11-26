@@ -9,6 +9,10 @@
   let map = task === '22' ? window.RundreiseMap22 : window.RundreiseMap;
   let core = window.RundreiseCore.forTask(task);
   let route = [];
+  let routeHistory = [];
+  let selectedEdges = [];
+  let swapNotice = '';
+  let editNotice = '';
   // Angefangene Routen bleiben ausschließlich in diesem geöffneten Tab.
   const drafts = new Map();
 
@@ -58,37 +62,132 @@
   }
   function chooseCity(index) {
     if (route.includes(index)) return;
+    routeHistory.push(route.slice());
     route = core.addCity(route, index);
+    clearSelection(); editNotice = '';
     renderRoute();
+  }
+  function clearSelection() {
+    selectedEdges = []; swapNotice = '';
+  }
+  function edgeName(index) {
+    return data.cities[route[index]].name + ' – ' + data.cities[route[(index + 1) % route.length]].name;
+  }
+  function describeChange(delta) {
+    return delta === 0 ? 'gleich lang' : number.format(Math.abs(delta)) + ' km ' + (delta < 0 ? 'kürzer' : 'länger');
+  }
+  function chooseEdge(index) {
+    if (!core.isValidRoute(route, true) || !Number.isInteger(index) || index < 0 || index >= route.length) return;
+    swapNotice = '';
+    if (selectedEdges.includes(index)) {
+      selectedEdges = selectedEdges.filter(edge => edge !== index);
+    } else if (selectedEdges.length !== 1) {
+      selectedEdges = [index];
+    } else if (core.canTwoOpt(route, selectedEdges[0], index)) {
+      selectedEdges.push(index);
+    } else {
+      swapNotice = 'Diese Kanten haben eine gemeinsame Stadt. Wählen Sie eine andere zweite Kante.';
+    }
+    renderSwap();
+    if (selectedEdges.length === 2) {
+      $('swap-apply').focus({preventScroll: true});
+      $('two-opt-panel').scrollIntoView({block: 'nearest'});
+    }
+  }
+  function renderSwap() {
+    const complete = core.isValidRoute(route, true);
+    $('two-opt-panel').hidden = !complete;
+    $('city-picker').hidden = complete;
+    $('swap-preview').replaceChildren();
+    $('swap-clear').disabled = selectedEdges.length === 0;
+    $('swap-apply').disabled = !complete || selectedEdges.length !== 2;
+    $('swap-distance').hidden = true;
+    $('swap-distance').textContent = '';
+    $('undo').disabled = routeHistory.length === 0 && selectedEdges.length === 0;
+    for (const element of document.querySelectorAll('.route-edge, #edge-options button')) {
+      const selected = selectedEdges.includes(Number(element.dataset.edge));
+      element.classList.toggle('is-selected', selected);
+      element.setAttribute('aria-pressed', String(selected));
+    }
+    if (!complete) return;
+    $('map-hint').textContent = swapNotice || (selectedEdges.length === 2 ? 'Grün zeigt die neuen Verbindungen. Übernehmen Sie den Tausch oder wählen Sie andere Kanten.' : selectedEdges.length === 1 ? 'Eine Kante ist gewählt. Klicken Sie eine zweite ohne gemeinsame Stadt an.' : 'Klicken Sie zwei Kanten an, um Ihre Rundreise mit 2-opt zu verändern.');
+    $('swap-status').textContent = swapNotice || (selectedEdges.length === 2 ? 'Zwei Kanten gewählt. Prüfen Sie die neue Strecke, bevor Sie tauschen.' : selectedEdges.length === 1 ? 'Ausgewählt: ' + edgeName(selectedEdges[0]) + '. Wählen Sie eine zweite Kante ohne gemeinsame Stadt.' : 'Klicken Sie zwei Kanten ohne gemeinsame Stadt an.');
+    if (selectedEdges.length !== 2) return;
+    const candidate = core.twoOpt(route, ...selectedEdges);
+    const nextLength = core.routeLength(candidate);
+    const delta = nextLength - core.routeLength(route);
+    $('swap-distance').hidden = false;
+    $('swap-distance').dataset.change = delta < 0 ? 'shorter' : delta > 0 ? 'longer' : 'equal';
+    $('swap-distance').textContent = 'Nach dem Tausch: ' + number.format(nextLength) + ' km · ' + describeChange(delta);
+    const [left, right] = selectedEdges.slice().sort((a, b) => a - b);
+    for (const [a, b] of [[route[left], route[right]], [route[left + 1], route[(right + 1) % route.length]]]) {
+      const [x1, y1] = point(a), [x2, y2] = point(b);
+      $('swap-preview').append(svg('line', {class: 'swap-preview-line', x1, y1, x2, y2}));
+    }
+  }
+  function drawEdges(complete) {
+    $('route-lines').replaceChildren(); $('edge-options').replaceChildren();
+    if (route.length < 2) return;
+    if (!complete) {
+      $('route-lines').append(svg('polyline', {class: 'route-line', 'aria-hidden': 'true', points: route.map(i => point(i).join(',')).join(' ')}));
+      return;
+    }
+    route.forEach((city, index) => {
+      const next = route[(index + 1) % route.length];
+      const [x1, y1] = point(city), [x2, y2] = point(next);
+      const edge = svg('g', {class: 'route-edge', role: 'button', tabindex: 0, 'data-edge': index, 'aria-pressed': 'false', 'aria-label': edgeName(index) + ', ' + number.format(data.distances[city][next]) + ' Kilometer, für 2-opt auswählen'});
+      edge.append(svg('line', {class: 'edge-hit', x1, y1, x2, y2}));
+      edge.append(svg('line', {class: 'route-line' + (index === route.length - 1 ? ' return-line' : ''), x1, y1, x2, y2}));
+      edge.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); chooseEdge(index); }
+      });
+      $('route-lines').append(edge);
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'button secondary'; button.dataset.edge = index;
+      button.setAttribute('aria-pressed', 'false');
+      button.textContent = edgeName(index) + ' (' + number.format(data.distances[city][next]) + ' km)';
+      button.addEventListener('click', () => chooseEdge(index));
+      $('edge-options').append(button);
+    });
+  }
+  function nearestEdge(event) {
+    // In Bildschirmkoordinaten messen, damit schmale Karten auf Smartphones
+    // genauso gut bedienbar sind. Bei überlappenden Klickflächen zählt die Nähe.
+    const matrix = $('map').getScreenCTM();
+    if (!matrix) return null;
+    let closest = null, bestDistance = 14;
+    route.forEach((city, index) => {
+      const [ax, ay] = point(city), [bx, by] = point(route[(index + 1) % route.length]);
+      const a = new DOMPoint(ax, ay).matrixTransform(matrix), b = new DOMPoint(bx, by).matrixTransform(matrix);
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const projection = Math.max(0, Math.min(1, ((event.clientX - a.x) * dx + (event.clientY - a.y) * dy) / (dx * dx + dy * dy)));
+      const distance = Math.hypot(event.clientX - a.x - projection * dx, event.clientY - a.y - projection * dy);
+      if (distance < bestDistance) { closest = index; bestDistance = distance; }
+    });
+    return closest;
   }
   function renderRoute() {
     const complete = core.isValidRoute(route, true);
     const length = number.format(core.routeLength(route));
     $('city-count').textContent = route.length;
     $('distance').textContent = length;
-    $('trip-heading').textContent = complete ? 'Dein Ergebnis' : 'Strecke bisher';
+    $('trip-heading').textContent = complete ? 'Ihr Ergebnis' : 'Strecke bisher';
     $('trip-panel').classList.toggle('is-complete', complete);
-    $('route-state').textContent = complete ? 'Alle Städte besucht' : (route.length ? 'Noch ' + (data.cities.length - route.length) + ' Städte' : 'Wähle deinen Start');
+    $('route-state').textContent = complete ? 'Alle Städte besucht' : (route.length ? 'Noch ' + (data.cities.length - route.length) + ' Städte' : 'Wählen Sie Ihren Start');
     $('distance-note').textContent = complete ? 'Inklusive Rückweg nach ' + data.cities[route[0]].name + '.' : 'Der Rückweg zählt mit, sobald alle Städte besucht sind.';
-    $('map-hint').textContent = complete ? 'Runde komplett! Probiere eine andere Reihenfolge, um die Strecke zu verkürzen.' : route.length ? 'Wähle die nächste noch nicht besuchte Stadt.' : 'Klicke eine beliebige Stadt als Start und Ziel an.';
-    $('result-message').textContent = complete ? 'Geschafft! Deine Rundreise ist ' + length + ' km lang.' : '';
+    $('map-hint').textContent = complete ? 'Klicken Sie zwei Kanten an, um Ihre Rundreise mit 2-opt zu verändern.' : route.length ? 'Wählen Sie die nächste noch nicht besuchte Stadt.' : 'Klicken Sie eine beliebige Stadt als Start und Ziel an.';
+    $('result-message').textContent = complete ? (editNotice || 'Geschafft! Ihre Rundreise ist ' + length + ' km lang.') : '';
     $('progress').setAttribute('aria-valuenow', route.length);
     $('progress-fill').style.width = (route.length / data.cities.length * 100) + '%';
-    $('undo').disabled = route.length === 0;
     $('reset').disabled = route.length === 0;
-    $('route-lines').replaceChildren();
-    if (route.length > 1) {
-      $('route-lines').append(svg('polyline', { class: 'route-line', points: route.map(i => point(i).join(',')).join(' ') }));
-      if (complete) {
-        const [x1,y1] = point(route[route.length - 1]), [x2,y2] = point(route[0]);
-        $('route-lines').append(svg('line', { class: 'route-line return-line', x1,y1,x2,y2 }));
-      }
-    }
+    $('map').classList.toggle('has-tour', complete);
+    drawEdges(complete);
     Array.from($('city-markers').children).forEach((marker, index) => {
       const position = route.indexOf(index);
       marker.classList.toggle('visited', position !== -1);
       marker.classList.toggle('start', position === 0);
       marker.setAttribute('aria-disabled', String(position !== -1));
+      marker.setAttribute('tabindex', complete ? '-1' : '0');
       marker.setAttribute('aria-label', data.cities[index].name + (position === -1 ? ', als nächste Stadt wählen' : ', Station ' + (position + 1) + (position === 0 ? ', Start und Ziel' : '')));
       marker.querySelector('.city-dot').setAttribute('r', position === -1 ? (map.dotRadius || 3.55) : (map.visitedRadius || 4.4));
       marker.querySelector('.city-order').textContent = position === -1 ? '' : position + 1;
@@ -101,11 +200,12 @@
     list.replaceChildren();
     if (route.length === 0) {
       const empty = document.createElement('li'); empty.className = 'route-empty';
-      empty.textContent = 'Deine erste Stadt wird dein Start und Ziel.'; list.append(empty);
+      empty.textContent = 'Die erste gewählte Stadt ist Ihr Start und Ziel.'; list.append(empty);
     }
     route.forEach((index, position) => appendStop(index, String(position + 1), position ? data.distances[route[position - 1]][index] : null, false));
     if (complete) appendStop(route[0], 'Ziel', data.distances[route[route.length - 1]][route[0]], true);
     list.scrollTop = list.scrollHeight;
+    renderSwap();
   }
   function appendStop(index, position, length, returnStop) {
     const li = document.createElement('li');
@@ -128,12 +228,15 @@
   }
   function switchTask(next) {
     if (next === task || !Object.hasOwn(window.RundreiseTasks, next)) return;
-    drafts.set(task, route.slice());
+    drafts.set(task, {route: route.slice(), history: routeHistory.map(previous => previous.slice())});
     task = next;
     data = window.RundreiseTasks[task];
     map = task === '22' ? window.RundreiseMap22 : window.RundreiseMap;
     core = window.RundreiseCore.forTask(task);
-    route = (drafts.get(task) || []).slice();
+    const draft = drafts.get(task);
+    route = draft ? draft.route.slice() : [];
+    routeHistory = draft ? draft.history.map(previous => previous.slice()) : [];
+    clearSelection(); editNotice = '';
     const url = new URL(window.location.href);
     url.searchParams.set('aufgabe', task);
     try { history.replaceState(null, '', url); } catch (_) { /* Auch als lokale Datei spielbar. */ }
@@ -142,7 +245,32 @@
   document.querySelectorAll('.task-choice').forEach(button => {
     button.addEventListener('click', () => switchTask(button.dataset.task));
   });
-  $('undo').addEventListener('click', () => { route.pop(); renderRoute(); });
-  $('reset').addEventListener('click', () => { route = []; renderRoute(); });
+  $('map').addEventListener('click', event => {
+    if (event.target.closest('.city')) return;
+    if (!core.isValidRoute(route, true)) return;
+    const target = event.target.closest('.route-edge');
+    const index = nearestEdge(event) ?? (target ? Number(target.dataset.edge) : null);
+    if (index !== null) chooseEdge(index);
+  });
+  $('swap-clear').addEventListener('click', () => { clearSelection(); renderSwap(); });
+  $('swap-apply').addEventListener('click', () => {
+    if (selectedEdges.length !== 2 || !core.canTwoOpt(route, ...selectedEdges)) return;
+    const focusEdge = Math.min(...selectedEdges);
+    const candidate = core.twoOpt(route, ...selectedEdges);
+    const delta = core.routeLength(candidate) - core.routeLength(route);
+    routeHistory.push(route.slice()); route = candidate;
+    clearSelection();
+    editNotice = '2-opt übernommen: ' + describeChange(delta) + '. Ihre Rundreise ist ' + number.format(core.routeLength(route)) + ' km lang.';
+    renderRoute();
+    $('route-lines').querySelector('[data-edge="' + focusEdge + '"]').focus({preventScroll: true});
+  });
+  $('undo').addEventListener('click', () => {
+    if (selectedEdges.length) { clearSelection(); renderSwap(); return; }
+    if (!routeHistory.length) return;
+    route = routeHistory.pop(); clearSelection(); editNotice = ''; renderRoute();
+  });
+  $('reset').addEventListener('click', () => {
+    route = []; routeHistory = []; clearSelection(); editNotice = ''; renderRoute();
+  });
   updateTask();
 })();

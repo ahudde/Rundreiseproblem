@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#102f46">
-  <meta name="description" content="Plane deine Deutschlandtour mit 12 oder 22 Städten und finde eine möglichst kurze Rundreise. Ein Mitmachspiel für das SIF.">
+  <meta name="description" content="Planen Sie Ihre Deutschlandtour mit 12 oder 22 Städten und finden Sie eine möglichst kurze Rundreise. Ein Mitmachspiel für das SIF.">
   <title>Deutschlandtour · SIF 2026</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2opt-1">
   <script src="data.js" defer></script>
   <script src="data-22.js" defer></script>
   <script src="map-data.js" defer></script>
   <script src="map-data-22.js" defer></script>
-  <script src="core.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="core.js?v=sie-1" defer></script>
+  <script src="app.js?v=sie-1" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#spiel">Direkt zur Karte</a>
@@ -27,8 +27,8 @@
 
   <main id="spiel">
     <div class="intro">
-      <div><p class="eyebrow">DAS PROBLEM DES HANDELSREISENDEN</p><h1><span id="task-title">Zwölf Städte.</span><br>Deine kürzeste Runde.</h1></div>
-      <p class="intro-text">Wähle deinen Start und klicke die Städte in deiner Reihenfolge an. Besuche jede genau einmal. Am Ende geht’s zurück zum Start.</p>
+      <div><p class="eyebrow">DAS PROBLEM DES HANDELSREISENDEN</p><h1><span id="task-title">Zwölf Städte.</span><br>Ihre kürzeste Runde.</h1></div>
+      <p class="intro-text">Wählen Sie Ihren Start und klicken Sie die Städte in der gewünschten Reihenfolge an. Besuchen Sie jede Stadt genau einmal. Am Ende geht es zurück zum Start.</p>
     </div>
     <fieldset class="task-picker">
       <legend>Aufgabe wählen</legend>
@@ -36,37 +36,49 @@
         <button type="button" class="button secondary task-choice" data-task="12" aria-pressed="true">12 Städte</button>
         <button type="button" class="button secondary task-choice" data-task="22" aria-pressed="false">22 Städte</button>
       </div>
-      <p class="small-text">Deine angefangenen Routen bleiben beim Wechsel erhalten.</p>
+      <p class="small-text">Ihre angefangenen Routen bleiben beim Wechsel erhalten.</p>
     </fieldset>
-    <noscript><p class="notice">Bitte aktiviere JavaScript, um Städte auszuwählen und die Strecke zu berechnen.</p></noscript>
+    <noscript><p class="notice">Bitte aktivieren Sie JavaScript, um Städte auszuwählen und die Strecke zu berechnen.</p></noscript>
 
     <div class="game-layout">
       <section class="map-panel" aria-labelledby="map-heading">
-        <div class="panel-heading"><h2 id="map-heading">Deine Route</h2><span class="count-pill"><span id="city-count">0</span> / <span id="city-total">12</span> Städte</span></div>
-        <p id="map-hint" class="map-hint">Klicke eine beliebige Stadt als Start und Ziel an.</p>
+        <div class="panel-heading"><h2 id="map-heading">Ihre Route</h2><span class="count-pill"><span id="city-count">0</span> / <span id="city-total">12</span> Städte</span></div>
+        <p id="map-hint" class="map-hint">Klicken Sie eine beliebige Stadt als Start und Ziel an.</p>
         <svg id="map" viewBox="-16 -5 196 229" aria-labelledby="map-title map-description">
           <title id="map-title">Karte mit zwölf Städten in Deutschland</title>
-          <desc id="map-description">Wähle die Städte mit Klick, Enter oder Leertaste. Die Reihenfolge bestimmt deine Rundreise.</desc>
+          <desc id="map-description">Wählen Sie die Städte mit Klick, Enter oder Leertaste. Bei einer vollständigen Rundreise können Sie zwei Kanten auswählen und mit 2-opt tauschen.</desc>
           <rect id="map-background" x="-16" y="-5" width="196" height="229" fill="white"/>
           <image id="country" href="germany.svg" x="0" y="0" width="164" height="219" aria-hidden="true"/>
-          <g id="route-lines" aria-hidden="true"></g>
+          <g id="route-lines" role="group" aria-label="Verbindungen Ihrer Rundreise"></g>
+          <g id="swap-preview" aria-hidden="true" pointer-events="none"></g>
           <g id="city-markers"></g>
         </svg>
-        <details class="city-picker"><summary>Städte auch als Liste auswählen</summary><div id="city-options" class="city-options"></div></details>
+        <section id="two-opt-panel" class="two-opt-panel" aria-labelledby="two-opt-heading" hidden>
+          <h3 id="two-opt-heading">Route mit 2-opt verändern</h3>
+          <p id="swap-status" class="small-text" role="status" aria-live="polite">Klicken Sie zwei Kanten ohne gemeinsame Stadt an.</p>
+          <p id="swap-distance" class="swap-distance" hidden></p>
+          <div class="swap-actions">
+            <button id="swap-apply" class="button primary" type="button" disabled>Tausch übernehmen</button>
+            <button id="swap-clear" class="text-button" type="button" disabled>Auswahl aufheben</button>
+          </div>
+          <p class="small-text swap-legend">Rot: gewählte Kanten · Grün gestrichelt: neue Verbindungen</p>
+          <details class="edge-picker"><summary>Verbindungen auch als Liste auswählen</summary><div id="edge-options" class="edge-options"></div></details>
+        </section>
+        <details id="city-picker" class="city-picker"><summary>Städte auch als Liste auswählen</summary><div id="city-options" class="city-options"></div></details>
         <div class="map-footer"><span><i class="legend-dot"></i>Noch offen</span><span><i class="legend-dot visited-dot"></i>Besucht</span><span><i class="legend-dot start-dot"></i>Start & Ziel</span><small>Luftlinie · keine Straßenrouten</small></div>
       </section>
 
       <aside class="side-panel">
         <section class="trip-panel" id="trip-panel" aria-labelledby="trip-heading">
-          <p class="eyebrow">DEINE TOUR</p>
-          <div class="distance-heading"><h2 id="trip-heading">Strecke bisher</h2><span id="route-state">Wähle deinen Start</span></div>
+          <p class="eyebrow">IHRE TOUR</p>
+          <div class="distance-heading"><h2 id="trip-heading">Strecke bisher</h2><span id="route-state">Wählen Sie Ihren Start</span></div>
           <p class="distance"><span id="distance">0</span><span class="distance-unit">km</span></p>
           <p id="distance-note" class="small-text">Der Rückweg zählt mit, sobald alle Städte besucht sind.</p>
           <div class="progress-track" role="progressbar" aria-label="Besuchte Städte" aria-valuemin="0" aria-valuemax="12" aria-valuenow="0" id="progress"><div id="progress-fill"></div></div>
-          <ol id="route-list" class="route-list" aria-label="Gewählte Reihenfolge"><li class="route-empty">Deine erste Stadt wird dein Start und Ziel.</li></ol>
-          <div class="edit-controls"><button class="button secondary" id="undo" type="button" disabled>Letzte Stadt zurück</button><button class="text-button" id="reset" type="button" disabled>Neu beginnen</button></div>
+          <ol id="route-list" class="route-list" aria-label="Gewählte Reihenfolge"><li class="route-empty">Die erste gewählte Stadt ist Ihr Start und Ziel.</li></ol>
+          <div class="edit-controls"><button class="button secondary" id="undo" type="button" disabled>Letzte Änderung zurück</button><button class="text-button" id="reset" type="button" disabled>Neu beginnen</button></div>
           <p id="result-message" class="result-message" role="status" aria-live="polite"></p>
-          <p class="small-text personal-note">Dein Ergebnis wird nur dir angezeigt. Je kürzer die Strecke, desto besser.</p>
+          <p class="small-text personal-note">Ihr Ergebnis wird nur Ihnen angezeigt. Je kürzer die Strecke, desto besser.</p>
         </section>
       </aside>
     </div>
