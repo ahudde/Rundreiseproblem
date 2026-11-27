@@ -33,11 +33,5 @@
     }
     return Object.freeze({ isValidRoute, routeLength, addCity, canTwoOpt, twoOpt });
   }
-  function cleanName(name) {
-    return String(name || '').normalize('NFC').replace(/[\u0000-\u001f\u007f]/g, '').trim();
-  }
-  function cleanRoom(room) {
-    return String(room || '').trim().toLowerCase();
-  }
-  window.RundreiseCore = Object.freeze({ ...forTask('12'), forTask, cleanName, cleanRoom });
+  window.RundreiseCore = Object.freeze({ forTask });
 })();

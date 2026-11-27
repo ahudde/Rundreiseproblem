@@ -13,6 +13,7 @@
   let selectedEdges = [];
   let swapNotice = '';
   let editNotice = '';
+  let cityTooltip = null;
   // Angefangene Routen bleiben ausschließlich in diesem geöffneten Tab.
   const drafts = new Map();
 
@@ -24,7 +25,52 @@
     for (const [key, value] of Object.entries(attrs || {})) el.setAttribute(key, String(value));
     return el;
   }
+  function cityDistance(index) {
+    const position = route.indexOf(index);
+    const previous = position > 0 ? route[position - 1]
+      : position === 0 ? (core.isValidRoute(route, true) ? route[route.length - 1] : null)
+      : route.length ? route[route.length - 1] : null;
+    if (previous === null) return '';
+    return data.cities[previous].name + ' – ' + data.cities[index].name + ': ' +
+      number.format(data.distances[previous][index]) + ' km';
+  }
+  function hideCityTooltip() {
+    if (cityTooltip) cityTooltip.element.removeAttribute('aria-describedby');
+    cityTooltip = null;
+    $('city-distance-tooltip').hidden = true;
+  }
+  function renderCityTooltip() {
+    if (!cityTooltip) return;
+    const tooltip = $('city-distance-tooltip');
+    const text = cityDistance(cityTooltip.index);
+    tooltip.textContent = text;
+    tooltip.hidden = !text;
+    if (!text) { cityTooltip.element.removeAttribute('aria-describedby'); return; }
+    cityTooltip.element.setAttribute('aria-describedby', tooltip.id);
+    const anchor = cityTooltip.element.getBoundingClientRect();
+    const x = cityTooltip.x ?? anchor.left + anchor.width / 2;
+    const y = cityTooltip.y ?? anchor.bottom;
+    const box = tooltip.getBoundingClientRect();
+    const left = x + 14 + box.width <= window.innerWidth - 12 ? x + 14 : x - box.width - 14;
+    const top = y + 16 + box.height <= window.innerHeight - 12 ? y + 16 : y - box.height - 12;
+    tooltip.style.left = Math.max(12, Math.min(left, window.innerWidth - box.width - 12)) + 'px';
+    tooltip.style.top = Math.max(12, Math.min(top, window.innerHeight - box.height - 12)) + 'px';
+  }
+  function bindCityTooltip(element, index) {
+    function show(event) {
+      if (event.pointerType === 'touch') return;
+      if (cityTooltip && cityTooltip.element !== element) hideCityTooltip();
+      cityTooltip = {element, index, x: event.clientX, y: event.clientY};
+      renderCityTooltip();
+    }
+    element.addEventListener('pointerenter', show);
+    element.addEventListener('pointermove', show);
+    element.addEventListener('pointerleave', hideCityTooltip);
+    element.addEventListener('focus', show);
+    element.addEventListener('blur', hideCityTooltip);
+  }
   function makeMap() {
+    hideCityTooltip();
     $('city-markers').replaceChildren();
     $('city-options').replaceChildren();
     $('map').setAttribute('viewBox', map.viewBox.join(' '));
@@ -49,7 +95,14 @@
       label.textContent = city.name;
       const order = svg('text', { class: 'city-order', x, y });
       marker.append(label, order);
-      marker.addEventListener('click', () => chooseCity(index));
+      bindCityTooltip(marker, index);
+      marker.addEventListener('click', event => {
+        const complete = core.isValidRoute(route, true);
+        chooseCity(index);
+        // Der letzte Stadtklick darf nicht zugleich eine neue Kante auswählen.
+        // In fertigen Touren bleiben auch Kanten unter Beschriftungen erreichbar.
+        if (!complete) event.stopPropagation();
+      });
       marker.addEventListener('keydown', event => {
         if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); chooseCity(index); }
       });
@@ -57,6 +110,7 @@
       const button = document.createElement('button');
       button.type = 'button'; button.className = 'button secondary'; button.dataset.city = index;
       button.textContent = city.name; button.addEventListener('click', () => chooseCity(index));
+      bindCityTooltip(button, index);
       $('city-options').append(button);
     });
   }
@@ -172,7 +226,6 @@
     $('city-count').textContent = route.length;
     $('distance').textContent = length;
     $('trip-heading').textContent = complete ? 'Ihr Ergebnis' : 'Strecke bisher';
-    $('trip-panel').classList.toggle('is-complete', complete);
     $('route-state').textContent = complete ? 'Alle Städte besucht' : (route.length ? 'Noch ' + (data.cities.length - route.length) + ' Städte' : 'Wählen Sie Ihren Start');
     $('distance-note').textContent = complete ? 'Inklusive Rückweg nach ' + data.cities[route[0]].name + '.' : 'Der Rückweg zählt mit, sobald alle Städte besucht sind.';
     $('map-hint').textContent = complete ? 'Klicken Sie zwei Kanten an, um Ihre Rundreise mit 2-opt zu verändern.' : route.length ? 'Wählen Sie die nächste noch nicht besuchte Stadt.' : 'Klicken Sie eine beliebige Stadt als Start und Ziel an.';
@@ -206,6 +259,7 @@
     if (complete) appendStop(route[0], 'Ziel', data.distances[route[route.length - 1]][route[0]], true);
     list.scrollTop = list.scrollHeight;
     renderSwap();
+    renderCityTooltip();
   }
   function appendStop(index, position, length, returnStop) {
     const li = document.createElement('li');
@@ -217,7 +271,6 @@
     $('route-list').append(li);
   }
   function updateTask() {
-    $('task-title').textContent = data.cities.length === 22 ? '22 Städte.' : 'Zwölf Städte.';
     $('city-total').textContent = data.cities.length;
     $('map-title').textContent = 'Karte mit ' + data.cities.length + ' Städten in Deutschland';
     $('progress').setAttribute('aria-valuemax', data.cities.length);
@@ -246,7 +299,6 @@
     button.addEventListener('click', () => switchTask(button.dataset.task));
   });
   $('map').addEventListener('click', event => {
-    if (event.target.closest('.city')) return;
     if (!core.isValidRoute(route, true)) return;
     const target = event.target.closest('.route-edge');
     const index = nearestEdge(event) ?? (target ? Number(target.dataset.edge) : null);
@@ -271,6 +323,19 @@
   });
   $('reset').addEventListener('click', () => {
     route = []; routeHistory = []; clearSelection(); editNotice = ''; renderRoute();
+  });
+  window.addEventListener('scroll', () => {
+    if (!cityTooltip) return;
+    const {element, x, y} = cityTooltip;
+    if (x !== undefined && !element.contains(document.elementFromPoint(x, y))) {
+      hideCityTooltip();
+    } else {
+      renderCityTooltip();
+    }
+  }, true);
+  window.addEventListener('resize', hideCityTooltip);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') hideCityTooltip();
   });
   updateTask();
 })();

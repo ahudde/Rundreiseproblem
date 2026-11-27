@@ -3,46 +3,37 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#102f46">
-  <meta name="description" content="Planen Sie Ihre Deutschlandtour mit 12 oder 22 Städten und finden Sie eine möglichst kurze Rundreise. Ein Mitmachspiel für das SIF.">
-  <title>Deutschlandtour · SIF 2026</title>
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="style.css?v=2opt-1">
+  <meta name="theme-color" content="#3333b3">
+  <meta name="description" content="Finden Sie eine kurze Rundreise durch 12 oder 22 Städte.">
+  <title>Rundreiseproblem</title>
+  <link rel="icon" href="icon.svg?v=slides-1" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css?v=links-1">
   <script src="data.js" defer></script>
   <script src="data-22.js" defer></script>
   <script src="map-data.js" defer></script>
   <script src="map-data-22.js" defer></script>
-  <script src="core.js?v=sie-1" defer></script>
-  <script src="app.js?v=sie-1" defer></script>
+  <script src="core.js?v=static-1" defer></script>
+  <script src="app.js?v=static-1" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#spiel">Direkt zur Karte</a>
-  <header class="site-header">
-    <a class="brand" href="./" aria-label="Deutschlandtour Startseite">
-      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true"><rect width="34" height="34" rx="10" fill="currentColor"/><path d="M9 24 13 10l12 4-5 11Z" fill="none" stroke="white" stroke-width="1.8"/><g fill="#87e5c5"><circle cx="9" cy="24" r="2.7"/><circle cx="13" cy="10" r="2.7"/><circle cx="25" cy="14" r="2.7"/><circle cx="20" cy="25" r="2.7"/></g></svg>
-      <span>Deutschlandtour<span class="brand-sub">HOCHSCHULE HEILBRONN</span></span>
-    </a>
-    <span class="festival-tag">SIF 2026 <span>· Mitmach-Challenge</span></span>
-  </header>
-
   <main id="spiel">
-    <div class="intro">
-      <div><p class="eyebrow">DAS PROBLEM DES HANDELSREISENDEN</p><h1><span id="task-title">Zwölf Städte.</span><br>Ihre kürzeste Runde.</h1></div>
-      <p class="intro-text">Wählen Sie Ihren Start und klicken Sie die Städte in der gewünschten Reihenfolge an. Besuchen Sie jede Stadt genau einmal. Am Ende geht es zurück zum Start.</p>
-    </div>
-    <fieldset class="task-picker">
-      <legend>Aufgabe wählen</legend>
-      <div class="task-buttons">
-        <button type="button" class="button secondary task-choice" data-task="12" aria-pressed="true">12 Städte</button>
-        <button type="button" class="button secondary task-choice" data-task="22" aria-pressed="false">22 Städte</button>
-      </div>
-      <p class="small-text">Ihre angefangenen Routen bleiben beim Wechsel erhalten.</p>
-    </fieldset>
+    <header class="game-header">
+      <h1>Rundreiseproblem</h1>
+      <fieldset class="task-picker">
+        <legend class="visually-hidden">Aufgabe wählen</legend>
+        <div class="task-buttons">
+          <button type="button" class="button secondary task-choice" data-task="12" aria-pressed="true">12 Städte</button>
+          <button type="button" class="button secondary task-choice" data-task="22" aria-pressed="false">22 Städte</button>
+        </div>
+      </fieldset>
+    </header>
+    <p class="instructions">Besuchen Sie jede Stadt genau einmal und kehren Sie zum Start zurück.</p>
     <noscript><p class="notice">Bitte aktivieren Sie JavaScript, um Städte auszuwählen und die Strecke zu berechnen.</p></noscript>
 
     <div class="game-layout">
       <section class="map-panel" aria-labelledby="map-heading">
-        <div class="panel-heading"><h2 id="map-heading">Ihre Route</h2><span class="count-pill"><span id="city-count">0</span> / <span id="city-total">12</span> Städte</span></div>
+        <div class="panel-heading"><h2 id="map-heading">Route</h2><span class="city-count"><span id="city-count">0</span> / <span id="city-total">12</span> Städte</span></div>
         <p id="map-hint" class="map-hint">Klicken Sie eine beliebige Stadt als Start und Ziel an.</p>
         <svg id="map" viewBox="-16 -5 196 229" aria-labelledby="map-title map-description">
           <title id="map-title">Karte mit zwölf Städten in Deutschland</title>
@@ -53,6 +44,7 @@
           <g id="swap-preview" aria-hidden="true" pointer-events="none"></g>
           <g id="city-markers"></g>
         </svg>
+        <div id="city-distance-tooltip" class="city-distance-tooltip" role="tooltip" hidden></div>
         <section id="two-opt-panel" class="two-opt-panel" aria-labelledby="two-opt-heading" hidden>
           <h3 id="two-opt-heading">Route mit 2-opt verändern</h3>
           <p id="swap-status" class="small-text" role="status" aria-live="polite">Klicken Sie zwei Kanten ohne gemeinsame Stadt an.</p>
@@ -70,7 +62,6 @@
 
       <aside class="side-panel">
         <section class="trip-panel" id="trip-panel" aria-labelledby="trip-heading">
-          <p class="eyebrow">IHRE TOUR</p>
           <div class="distance-heading"><h2 id="trip-heading">Strecke bisher</h2><span id="route-state">Wählen Sie Ihren Start</span></div>
           <p class="distance"><span id="distance">0</span><span class="distance-unit">km</span></p>
           <p id="distance-note" class="small-text">Der Rückweg zählt mit, sobald alle Städte besucht sind.</p>
@@ -78,13 +69,18 @@
           <ol id="route-list" class="route-list" aria-label="Gewählte Reihenfolge"><li class="route-empty">Die erste gewählte Stadt ist Ihr Start und Ziel.</li></ol>
           <div class="edit-controls"><button class="button secondary" id="undo" type="button" disabled>Letzte Änderung zurück</button><button class="text-button" id="reset" type="button" disabled>Neu beginnen</button></div>
           <p id="result-message" class="result-message" role="status" aria-live="polite"></p>
-          <p class="small-text personal-note">Ihr Ergebnis wird nur Ihnen angezeigt. Je kürzer die Strecke, desto besser.</p>
         </section>
       </aside>
     </div>
 
-    <p class="bottom-note">Eine kurze Tour finden ist das eine. Wissen, dass es keine kürzere gibt, ist die nächste Herausforderung.</p>
   </main>
-  <footer class="site-footer"><span>SIF 2026 · Hochschule Heilbronn</span><span>Kartengrundlage: <a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noopener noreferrer">Natural Earth</a></span></footer>
+  <footer class="site-footer">
+    <nav class="footer-links" aria-label="Kontakt und weitere Informationen">
+      <a href="mailto:anselm.hudde@hs-heilbronn.de">anselm.hudde@hs-heilbronn.de</a>
+      <a href="https://www.hs-heilbronn.de/de/studiengaenge-it-fakultaet" target="_blank" rel="noopener noreferrer">IT-Studienangebot der HHN</a>
+      <a href="Rundreiseproblem.pdf" target="_blank" rel="noopener noreferrer">Vorlesungsfolien (PDF)</a>
+    </nav>
+    <small class="map-credit">Karte: <a href="https://www.naturalearthdata.com/about/terms-of-use/" target="_blank" rel="noopener noreferrer">Natural Earth</a></small>
+  </footer>
 </body>
 </html>
